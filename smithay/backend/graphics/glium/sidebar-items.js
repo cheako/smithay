@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["GliumGraphicsBackend","Wrapper to expose `Glium` compatibility"]]});

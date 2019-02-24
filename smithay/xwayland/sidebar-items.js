@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["XWayland","The XWayland handle"]],"trait":[["XWindowManager","Trait to be implemented by you WM for XWayland"]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["SwapBuffersError","Error that can happen when swapping buffers."]],"mod":[["gl","OpenGL rendering types"],["glium","Glium compatibility module"]],"struct":[["PixelFormat","Describes the pixel format of a framebuffer"]],"trait":[["CursorBackend","Functions to render cursors on graphics backend independently from it's rendering techique."]]});

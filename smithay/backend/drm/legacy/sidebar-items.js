@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["error","Errors thrown by the `LegacyDrmDevice` and `LegacyDrmSurface`."],["session","Support to register an open `LegacyDrmDevice` to an open `Session`."]],"struct":[["LegacyDrmDevice","Open raw drm device utilizing legacy mode-setting"],["LegacyDrmSurface","Open raw crtc utilizing legacy mode-setting"]]});

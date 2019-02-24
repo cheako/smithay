@@ -1,0 +1,1 @@
+initSidebarItems({"macro":[["define_roles",""]],"mod":[["backend","Backend (rendering/input) creation helpers"],["reexports","Reexports of crates, that are part of the public api, for convenience"],["utils","Various utilities functions and types"],["wayland","Protocol-related utilities"],["xwayland",""]]});

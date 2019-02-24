@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["legacy","Utilities for handling shell surfaces with the `wl_shell` protocol"],["xdg","Utilities for handling shell surfaces with the `xdg_shell` protocol"]]});
