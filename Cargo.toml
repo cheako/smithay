@@ -8,7 +8,7 @@ repository = "https://github.com/Smithay/smithay"
 edition = "2018"
 
 [workspace]
-members = [ "anvil" ]
+members = [ "anvil", "vkwayland" ]
 
 [dependencies]
 wayland-server = { version = "0.23", optional = true }
@@ -42,7 +42,7 @@ slog-term = "2.3"
 gl_generator = { version = "0.10", optional = true }
 
 [features]
-default = ["backend_winit", "backend_drm_legacy", "backend_drm_gbm", "backend_drm_egl", "backend_libinput", "backend_udev", "backend_session", "renderer_glium", "xwayland", "wayland_frontend"]
+default = ["backend_winit", "backend_drm_legacy", "backend_drm_gbm", "backend_drm_egl", "backend_libinput", "backend_udev", "backend_session", "renderer_glium", "renderer_vulkan", "xwayland", "wayland_frontend"]
 backend_winit = ["winit", "wayland-server/dlopen", "wayland-client/dlopen", "backend_egl", "renderer_gl", "native_lib"]
 backend_drm = ["drm"]
 backend_drm_legacy = ["backend_drm"]
@@ -55,6 +55,7 @@ backend_udev = ["udev"]
 backend_session_logind = ["dbus", "systemd", "backend_session"]
 renderer_gl = ["gl_generator"]
 renderer_glium = ["renderer_gl", "glium"]
+renderer_vulkan = ["image", "winit"]
 native_lib = ["wayland_frontend", "wayland-sys", "wayland-server/native_lib"]
 wayland_frontend = ["wayland-server", "wayland-commons", "wayland-protocols"]
 xwayland = ["wayland_frontend"]

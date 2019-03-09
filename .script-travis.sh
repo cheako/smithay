@@ -33,6 +33,19 @@ case $FEATURES in
                 vagga cargo-"$TRAVIS_RUST_VERSION" check --no-default-features --features "$ANVIL_FEATURES"
         esac
     ;;
+    "vkwayland")
+        cd vkwayland
+        case $VKWAYLAND_FEATURES in
+            "all")
+                vagga cargo-"$TRAVIS_RUST_VERSION" test --all-features
+            ;;
+            "default")
+                vagga cargo-"$TRAVIS_RUST_VERSION" test
+            ;;
+            *)
+                vagga cargo-"$TRAVIS_RUST_VERSION" check --no-default-features --features "$VKWAYLAND_FEATURES"
+        esac
+    ;;
     *)
         vagga cargo-"$TRAVIS_RUST_VERSION" check --tests --no-default-features --features "$FEATURES" &&
         vagga cargo-"$TRAVIS_RUST_VERSION" doc --no-deps --no-default-features --features "$FEATURES"

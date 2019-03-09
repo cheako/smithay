@@ -7,7 +7,7 @@ pub use dbus;
 pub use drm;
 #[cfg(feature = "backend_drm_gbm")]
 pub use gbm;
-#[cfg(feature = "backend_drm_gbm")]
+#[cfg(feature = "image")]
 pub use image;
 #[cfg(feature = "backend_libinput")]
 pub use input;
@@ -23,3 +23,5 @@ pub use wayland_commons;
 pub use wayland_protocols;
 #[cfg(feature = "wayland_frontend")]
 pub use wayland_server;
+#[cfg(feature = "winit")]
+pub use winit;

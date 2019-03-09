@@ -72,9 +72,9 @@ impl Window {
     }
 }
 
-struct WindowSize {
-    logical_size: LogicalSize,
-    dpi_factor: f64,
+pub struct WindowSize {
+    pub logical_size: LogicalSize,
+    pub dpi_factor: f64,
 }
 
 /// Window with an active EGL Context created by `winit`. Implements the
@@ -90,16 +90,15 @@ pub struct WinitGraphicsBackend {
 /// You need to call [`dispatch_new_events`](InputBackend::dispatch_new_events)
 /// periodically to receive any events.
 pub struct WinitInputBackend {
-    events_loop: EventsLoop,
-    events_handler: Option<Box<dyn WinitEventsHandler>>,
-    window: Rc<Window>,
-    time: Instant,
-    key_counter: u32,
-    seat: Seat,
-    input_config: (),
-    handler: Option<Box<dyn InputHandler<WinitInputBackend> + 'static>>,
-    logger: ::slog::Logger,
-    size: Rc<RefCell<WindowSize>>,
+    pub events_loop: EventsLoop,
+    pub events_handler: Option<Box<dyn WinitEventsHandler>>,
+    pub time: Instant,
+    pub key_counter: u32,
+    pub seat: Seat,
+    pub input_config: (),
+    pub handler: Option<Box<dyn InputHandler<WinitInputBackend> + 'static>>,
+    pub logger: ::slog::Logger,
+    pub size: Rc<RefCell<WindowSize>>,
 }
 
 /// Create a new [`WinitGraphicsBackend`], which implements the [`EGLGraphicsBackend`]
@@ -193,7 +192,6 @@ where
         WinitInputBackend {
             events_loop,
             events_handler: None,
-            window,
             time: Instant::now(),
             key_counter: 0,
             seat: Seat::new(
@@ -687,7 +685,6 @@ impl InputBackend for WinitInputBackend {
             let key_counter = &mut self.key_counter;
             let time = &self.time;
             let seat = &self.seat;
-            let window = &self.window;
             let mut handler = self.handler.as_mut();
             let mut events_handler = self.events_handler.as_mut();
             let logger = &self.logger;
@@ -699,34 +696,38 @@ impl InputBackend for WinitInputBackend {
                     let nanos = duration.subsec_nanos() as u64;
                     let time = ((1000 * duration.as_secs()) + (nanos / 1_000_000)) as u32;
                     match (event, handler.as_mut(), events_handler.as_mut()) {
-                        (WindowEvent::Resized(size), _, events_handler) => {
-                            trace!(logger, "Resizing window to {:?}", size);
-                            window.window().set_inner_size(size);
-                            let mut wsize = window_size.borrow_mut();
-                            wsize.logical_size = size;
-                            let physical_size = size.to_physical(wsize.dpi_factor);
-                            if let Window::Wayland { ref surface, .. } = **window {
-                                surface.resize(physical_size.width as i32, physical_size.height as i32, 0, 0);
-                            }
-                            if let Some(events_handler) = events_handler {
-                                events_handler.resized(physical_size.into(), wsize.dpi_factor);
-                            }
-                        }
+                        /*
+                                    (WindowEvent::Resized(size), _, events_handler) => {
+                                        trace!(logger, "Resizing window to {:?}", size);
+                                        window.window().set_inner_size(size);
+                                        let mut wsize = window_size.borrow_mut();
+                                        wsize.logical_size = size;
+                                        let physical_size = size.to_physical(wsize.dpi_factor);
+                                        if let Window::Wayland { ref surface, .. } = **window {
+                                            surface.resize(physical_size.width as i32, physical_size.height as i32, 0, 0);
+                                        }
+                                        if let Some(events_handler) = events_handler {
+                                            events_handler.resized(physical_size.into(), wsize.dpi_factor);
+                                        }
+                                    }
+                        */
                         (WindowEvent::Focused(focus), _, Some(events_handler)) => {
                             events_handler.focus_changed(focus)
                         }
                         (WindowEvent::Refresh, _, Some(events_handler)) => events_handler.refresh(),
-                        (WindowEvent::HiDpiFactorChanged(factor), _, events_handler) => {
-                            let mut wsize = window_size.borrow_mut();
-                            wsize.dpi_factor = factor;
-                            let physical_size = wsize.logical_size.to_physical(factor);
-                            if let Window::Wayland { ref surface, .. } = **window {
-                                surface.resize(physical_size.width as i32, physical_size.height as i32, 0, 0);
-                            }
-                            if let Some(events_handler) = events_handler {
-                                events_handler.resized(physical_size.into(), wsize.dpi_factor);
-                            }
-                        }
+                        /*
+                                    (WindowEvent::HiDpiFactorChanged(factor), _, events_handler) => {
+                                        let mut wsize = window_size.borrow_mut();
+                                        wsize.dpi_factor = factor;
+                                        let physical_size = wsize.logical_size.to_physical(factor);
+                                        if let Window::Wayland { ref surface, .. } = **window {
+                                            surface.resize(physical_size.width as i32, physical_size.height as i32, 0, 0);
+                                        }
+                                        if let Some(events_handler) = events_handler {
+                                            events_handler.resized(physical_size.into(), wsize.dpi_factor);
+                                        }
+                                    }
+                        */
                         (
                             WindowEvent::KeyboardInput {
                                 input: KeyboardInput { scancode, state, .. },

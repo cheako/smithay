@@ -21,7 +21,7 @@ pub struct Seat {
 }
 
 impl Seat {
-    pub(crate) fn new<S: ToString>(id: u64, name: S, capabilities: SeatCapabilities) -> Seat {
+    pub fn new<S: ToString>(id: u64, name: S, capabilities: SeatCapabilities) -> Seat {
         Seat {
             id,
             name: name.to_string(),
