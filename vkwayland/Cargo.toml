@@ -1,0 +1,44 @@
+[package]
+name = "vkwayland"
+version = "0.0.1"
+authors = [
+	"Victor Berger <victor.berger@m4x.org>",
+	"Drakulix (Victor Brekenfeld)",
+	"Michael Mestnik <cheako+smithay@mikemestnik.net>",
+]
+license = "MIT"
+publish = false
+edition = "2018"
+
+[dependencies]
+ash-tray = { path = "ash-tray-rs" }
+libc = "0.2.58"
+smithay = { path = "..", default-features = false, features = [ "renderer_vulkan", "wayland_frontend" ] }
+slog = "2.4"
+slog-async = "2.3"
+slog-syslog = { path = "syslog" }
+slog-term = "2.4"
+rand = "0.6"
+ash = "0.29"
+vk-mem = "0.1.7"
+wayland-server = "0.23"
+xkbcommon = "0.4.0"
+glsl-to-spirv-macros = "0.1"
+glsl-to-spirv-macros-impl = "0.1"
+cgmath = "0.17"
+
+[features]
+default = [ "winit", "udev" ]
+udev = [ "smithay/backend_libinput", "smithay/backend_udev", "smithay/backend_session" ]
+logind = [ "smithay/backend_session_logind" ]
+winit = [ "smithay/backend_winit" ]
+
+[[bin]]
+name = "vkwayland-winit"
+path = "src/winit.rs"
+required-features = ["winit"]
+
+[[bin]]
+name = "vkwayland-fbdev"
+path = "src/fbdev.rs"
+required-features = ["udev"]

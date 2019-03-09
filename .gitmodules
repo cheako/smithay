@@ -1,0 +1,3 @@
+[submodule "vkwayland/ash-tray-rs/ash-submodule"]
+	path = vkwayland/ash-tray-rs/ash-submodule
+	url = https://github.com/MaikKlein/ash.git

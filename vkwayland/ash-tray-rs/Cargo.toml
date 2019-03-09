@@ -1,0 +1,9 @@
+[package]
+name = "ash-tray"
+version = "0.1.0"
+authors = ["Michael Mestnik <cheako+github_com@mikemestnik.net>"]
+edition = "2018"
+
+[dependencies]
+ash = { path = "ash-submodule/ash" }
+winit = "0.19.1"

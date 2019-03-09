@@ -28,9 +28,16 @@ addons:
       - libcurl4-openssl-dev
       - libelf-dev
       - libdw-dev
+      - libvulkan-dev
 
 env:
   matrix:
+    - FEATURES="vkwayland" VKWAYLAND_FEATURES=""
+    - FEATURES="vkwayland" VKWAYLAND_FEATURES="winit"
+    - FEATURES="vkwayland" VKWAYLAND_FEATURES="udev"
+    - FEATURES="vkwayland" VKWAYLAND_FEATURES="logind"
+    - FEATURES="vkwayland" VKWAYLAND_FEATURES="default"
+    - FEATURES="vkwayland" VKWAYLAND_FEATURES="all"
     - FEATURES=""
       # test individual features
     - FEATURES="backend_winit"
@@ -45,6 +52,7 @@ env:
     - FEATURES="backend_session_logind"
     - FEATURES="renderer_gl"
     - FEATURES="renderer_glium"
+    - FEATURES="renderer_vulkan"
     - FEATURES="wayland_frontend"
     - FEATURES="xwayland"
       # test default features
@@ -70,10 +78,14 @@ matrix:
       env: FEATURES="all"
     - rust: beta
       env: FEATURES="anvil" ANVIL_FEATURES="all"
+    - rust: beta
+      env: FEATURES="vkwayland" VKWAYLAND_FEATURES="all"
     - rust: nightly
       env: FEATURES="all"
     - rust: nightly
       env: FEATURES="anvil" ANVIL_FEATURES="all"
+    - rust: nightly
+      env: FEATURES="vkwayland" VKWAYLAND_FEATURES="all"
       # special features for lint & fmt
     - rust: stable
       env: FEATURES="cargo-fmt"
