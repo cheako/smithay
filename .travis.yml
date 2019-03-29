@@ -9,8 +9,9 @@ sudo: required
 branches:
   only:
     - master
+    - vkwayland
 
-dist: trusty
+dist: xenial
 
 # We cannot cache .vagga, because we actually do not have read permissions
 # without sudo and travis cache script runs not as sudo...
@@ -91,42 +92,7 @@ before_script:
   - vagga update-$TRAVIS_RUST_VERSION
 
 script:
-  - |
-      case $FEATURES in
-        "all")
-            vagga cargo-$TRAVIS_RUST_VERSION test --all-features &&
-            vagga cargo-$TRAVIS_RUST_VERSION doc --no-deps --all-features
-        ;;
-        "default")
-            vagga cargo-$TRAVIS_RUST_VERSION test &&
-            vagga cargo-$TRAVIS_RUST_VERSION doc --no-deps
-        ;;
-        "examples")
-            vagga cargo-$TRAVIS_RUST_VERSION check --examples
-        ;;
-        "cargo-fmt")
-            vagga cargo-$TRAVIS_RUST_VERSION fmt --all -- --check
-        ;;
-        "cargo-clippy")
-            vagga cargo-$TRAVIS_RUST_VERSION clippy --all-features -- -D warnings
-        ;;
-        "anvil")
-          cd anvil
-          case $ANVIL_FEATURES in
-            "all")
-              vagga cargo-$TRAVIS_RUST_VERSION test --all-features
-            ;;
-            "default")
-              vagga cargo-$TRAVIS_RUST_VERSION test
-            ;;
-            *)
-              vagga cargo-$TRAVIS_RUST_VERSION check --no-default-features --features "$ANVIL_FEATURES"
-          esac
-        ;;
-        *)
-            vagga cargo-$TRAVIS_RUST_VERSION check --tests --no-default-features --features "$FEATURES" &&
-            vagga cargo-$TRAVIS_RUST_VERSION doc --no-deps --no-default-features --features "$FEATURES"
-      esac
+  - ./.script-travis.sh
 
 after_success:
   - cp ./doc_index.html ./target/doc/index.html
@@ -140,11 +106,3 @@ deploy:
     branch: master
     rust: nightly
     condition: "$FEATURES = all"
-
-notifications:
-  webhooks:
-    urls:
-      - "https://scalar.vector.im/api/neb/services/hooks/dHJhdmlzLWNpLyU0MGxldmFucyUzQXNhZmFyYWRlZy5uZXQvJTIxRkt4aGprSUNwakJWelZlQ2RGJTNBc2FmYXJhZGVnLm5ldA"
-    on_success: change
-    on_failure: always
-    on_start: never
