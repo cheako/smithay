@@ -32,14 +32,6 @@
 //! # #[macro_use] extern crate smithay;
 //! use smithay::wayland::compositor::compositor_init;
 //!
-//! // Define some user data to be associated with the surfaces.
-//! // It must implement the Default trait, which will represent the state of a surface which
-//! // has just been created.
-//! #[derive(Default)]
-//! struct MyData {
-//!     // whatever you need here
-//! }
-//!
 //! // Declare the roles enum
 //! define_roles!(MyRoles);
 //!
@@ -47,7 +39,7 @@
 //! # let mut event_loop = wayland_server::calloop::EventLoop::<()>::new().unwrap();
 //! # let mut display = wayland_server::Display::new(event_loop.handle());
 //! // Call the init function:
-//! let (token, _, _) = compositor_init::<MyData, MyRoles, _, _>(
+//! let (token, _, _) = compositor_init::<MyRoles, _, _>(
 //!     &mut display,
 //!     |request, surface, compositor_token| {
 //!         /*
@@ -112,8 +104,7 @@ pub enum Damage {
 }
 
 #[derive(Copy, Clone, Default)]
-struct Marker<U, R> {
-    _u: ::std::marker::PhantomData<U>,
+struct Marker<R> {
     _r: ::std::marker::PhantomData<R>,
 }
 
@@ -125,7 +116,7 @@ struct Marker<U, R> {
 ///
 /// You are responsible for setting those values as you see fit to avoid
 /// processing them two times.
-pub struct SurfaceAttributes<U> {
+pub struct SurfaceAttributes {
     /// Buffer defining the contents of the surface
     ///
     /// The tuple represent the coordinates of this buffer
@@ -164,11 +155,11 @@ pub struct SurfaceAttributes<U> {
     /// User-controlled data
     ///
     /// This is your field to host whatever you need.
-    pub user_data: U,
+    pub user_data: ::wayland_commons::utils::UserDataMap,
 }
 
-impl<U: Default> Default for SurfaceAttributes<U> {
-    fn default() -> SurfaceAttributes<U> {
+impl Default for SurfaceAttributes {
+    fn default() -> SurfaceAttributes {
         SurfaceAttributes {
             buffer: None,
             buffer_scale: 1,
@@ -176,7 +167,7 @@ impl<U: Default> Default for SurfaceAttributes<U> {
             opaque_region: None,
             input_region: None,
             damage: Damage::Full,
-            user_data: Default::default(),
+            user_data: ::wayland_commons::utils::UserDataMap::new(),
         }
     }
 }
@@ -239,33 +230,30 @@ impl Default for RegionAttributes {
 /// access data associated with the [`wl_surface`](wayland_server::protocol::wl_surface)
 /// and [`wl_region`](wayland_server::protocol::wl_region) managed
 /// by the `CompositorGlobal` that provided it.
-pub struct CompositorToken<U, R> {
-    _data: ::std::marker::PhantomData<*mut U>,
+pub struct CompositorToken<R> {
     _role: ::std::marker::PhantomData<*mut R>,
 }
 
-// we implement them manually because #[derive(..)] would require
-// U: Clone and R: Clone
-impl<U, R> Copy for CompositorToken<U, R> {}
-impl<U, R> Clone for CompositorToken<U, R> {
-    fn clone(&self) -> CompositorToken<U, R> {
+// we implement them manually because #[derive(..)] would require R: Clone
+impl<R> Copy for CompositorToken<R> {}
+impl<R> Clone for CompositorToken<R> {
+    fn clone(&self) -> CompositorToken<R> {
         *self
     }
 }
 
-unsafe impl<U, R> Send for CompositorToken<U, R> {}
-unsafe impl<U, R> Sync for CompositorToken<U, R> {}
+unsafe impl<R> Send for CompositorToken<R> {}
+unsafe impl<R> Sync for CompositorToken<R> {}
 
-impl<U, R> CompositorToken<U, R> {
-    pub(crate) fn make() -> CompositorToken<U, R> {
+impl<R> CompositorToken<R> {
+    pub(crate) fn make() -> CompositorToken<R> {
         CompositorToken {
-            _data: ::std::marker::PhantomData,
             _role: ::std::marker::PhantomData,
         }
     }
 }
 
-impl<U: 'static, R: 'static> CompositorToken<U, R> {
+impl<R: 'static> CompositorToken<R> {
     /// Access the data of a surface
     ///
     /// The closure will be called with the contents of the data associated with this surface.
@@ -274,24 +262,33 @@ impl<U: 'static, R: 'static> CompositorToken<U, R> {
     /// will panic (having more than one compositor is not supported).
     pub fn with_surface_data<F, T>(&self, surface: &WlSurface, f: F) -> T
     where
-        F: FnOnce(&mut SurfaceAttributes<U>) -> T,
+        F: FnOnce(&mut SurfaceAttributes) -> T,
     {
-        SurfaceData::<U, R>::with_data(surface, f)
+        SurfaceData::<R>::with_data(surface, f)
     }
 }
 
-impl<U, R> CompositorToken<U, R>
+impl<R> CompositorToken<R>
 where
-    U: 'static,
     R: RoleType + Role<SubsurfaceRole> + 'static,
 {
     /// Access the data of a surface tree from bottom to top
     ///
-    /// The provided closure is called successively on the surface and all its child subsurfaces,
-    /// in a depth-first order. This matches the order in which the surfaces are supposed to be
-    /// drawn: top-most last.
+    /// You provide three closures, a "filter", a "processor" and a "post filter".
     ///
-    /// The arguments provided to the closure are, in this order:
+    /// The first closure is initially called on a surface to determine if its children
+    /// should be processed as well. It returns a `TraversalAction<T>` reflecting that.
+    ///
+    /// The second closure is supposed to do the actual processing. The processing closure for
+    /// a surface may be called after the processing closure of some of its children, depending
+    /// on the stack ordering the client requested. Here the surfaces are processed in the same
+    /// order as they are supposed to be drawn: from the farthest of the screen to the nearest.
+    ///
+    /// The third closure is called once all the subtree of a node has been processed, and gives
+    /// an opportunity for early-stopping. If it returns `true` the processing will continue,
+    /// while if it returns `false` it'll stop.
+    ///
+    /// The arguments provided to the closures are, in this order:
     ///
     /// - The surface object itself
     /// - a mutable reference to its surface attribute data
@@ -301,27 +298,40 @@ where
     ///
     /// If the surface not managed by the `CompositorGlobal` that provided this token, this
     /// will panic (having more than one compositor is not supported).
-    pub fn with_surface_tree_upward<F, T>(&self, surface: &WlSurface, initial: T, f: F) -> Result<(), ()>
-    where
-        F: FnMut(&WlSurface, &mut SurfaceAttributes<U>, &mut R, &T) -> TraversalAction<T>,
+    pub fn with_surface_tree_upward<F1, F2, F3, T>(
+        &self,
+        surface: &WlSurface,
+        initial: T,
+        filter: F1,
+        processor: F2,
+        post_filter: F3,
+    ) where
+        F1: FnMut(&WlSurface, &mut SurfaceAttributes, &mut R, &T) -> TraversalAction<T>,
+        F2: FnMut(&WlSurface, &mut SurfaceAttributes, &mut R, &T),
+        F3: FnMut(&WlSurface, &mut SurfaceAttributes, &mut R, &T) -> bool,
     {
-        SurfaceData::<U, R>::map_tree(surface, initial, f, false);
-        Ok(())
+        SurfaceData::<R>::map_tree(surface, &initial, filter, processor, post_filter, false);
     }
 
     /// Access the data of a surface tree from top to bottom
     ///
-    /// The provided closure is called successively on the surface and all its child subsurfaces,
-    /// in a depth-first order. This matches the reverse of the order in which the surfaces are
-    /// supposed to be drawn: top-most first.
+    /// Behavior is the same as [`with_surface_tree_upward`](CompositorToken::with_surface_tree_upward), but
+    /// the processing is done in the reverse order, from the nearest of the screen to the deepest.
     ///
-    /// Behavior is the same as [`with_surface_tree_upward`](CompositorToken::with_surface_tree_upward).
-    pub fn with_surface_tree_downward<F, T>(&self, surface: &WlSurface, initial: T, f: F) -> Result<(), ()>
-    where
-        F: FnMut(&WlSurface, &mut SurfaceAttributes<U>, &mut R, &T) -> TraversalAction<T>,
+    /// This would typically be used to find out which surface of a subsurface tree has been clicked for example.
+    pub fn with_surface_tree_downward<F1, F2, F3, T>(
+        &self,
+        surface: &WlSurface,
+        initial: T,
+        filter: F1,
+        processor: F2,
+        post_filter: F3,
+    ) where
+        F1: FnMut(&WlSurface, &mut SurfaceAttributes, &mut R, &T) -> TraversalAction<T>,
+        F2: FnMut(&WlSurface, &mut SurfaceAttributes, &mut R, &T),
+        F3: FnMut(&WlSurface, &mut SurfaceAttributes, &mut R, &T) -> bool,
     {
-        SurfaceData::<U, R>::map_tree(surface, initial, f, true);
-        Ok(())
+        SurfaceData::<R>::map_tree(surface, &initial, filter, processor, post_filter, true);
     }
 
     /// Retrieve the parent of this surface
@@ -331,7 +341,7 @@ where
     /// If the surface is not managed by the `CompositorGlobal` that provided this token, this
     /// will panic (having more than one compositor is not supported).
     pub fn get_parent(&self, surface: &WlSurface) -> Option<WlSurface> {
-        SurfaceData::<U, R>::get_parent(surface)
+        SurfaceData::<R>::get_parent(surface)
     }
 
     /// Retrieve the children of this surface
@@ -339,17 +349,17 @@ where
     /// If the surface is not managed by the `CompositorGlobal` that provided this token, this
     /// will panic (having more than one compositor is not supported).
     pub fn get_children(&self, surface: &WlSurface) -> Vec<WlSurface> {
-        SurfaceData::<U, R>::get_children(surface)
+        SurfaceData::<R>::get_children(surface)
     }
 }
 
-impl<U: 'static, R: RoleType + 'static> CompositorToken<U, R> {
+impl<R: RoleType + 'static> CompositorToken<R> {
     /// Check whether this surface as a role or not
     ///
     /// If the surface is not managed by the `CompositorGlobal` that provided this token, this
     /// will panic (having more than one compositor is not supported).
     pub fn has_a_role(&self, surface: &WlSurface) -> bool {
-        SurfaceData::<U, R>::has_a_role(surface)
+        SurfaceData::<R>::has_a_role(surface)
     }
 
     /// Check whether this surface as a specific role
@@ -360,7 +370,7 @@ impl<U: 'static, R: RoleType + 'static> CompositorToken<U, R> {
     where
         R: Role<RoleData>,
     {
-        SurfaceData::<U, R>::has_role::<RoleData>(surface)
+        SurfaceData::<R>::has_role::<RoleData>(surface)
     }
 
     /// Register that this surface has given role with default data
@@ -374,7 +384,7 @@ impl<U: 'static, R: RoleType + 'static> CompositorToken<U, R> {
         R: Role<RoleData>,
         RoleData: Default,
     {
-        SurfaceData::<U, R>::give_role::<RoleData>(surface)
+        SurfaceData::<R>::give_role::<RoleData>(surface)
     }
 
     /// Register that this surface has given role with given data
@@ -387,7 +397,7 @@ impl<U: 'static, R: RoleType + 'static> CompositorToken<U, R> {
     where
         R: Role<RoleData>,
     {
-        SurfaceData::<U, R>::give_role_with::<RoleData>(surface, data)
+        SurfaceData::<R>::give_role_with::<RoleData>(surface, data)
     }
 
     /// Access the role data of a surface
@@ -401,7 +411,7 @@ impl<U: 'static, R: RoleType + 'static> CompositorToken<U, R> {
         R: Role<RoleData>,
         F: FnOnce(&mut RoleData) -> T,
     {
-        SurfaceData::<U, R>::with_role_data::<RoleData, _, _>(surface, f)
+        SurfaceData::<R>::with_role_data::<RoleData, _, _>(surface, f)
     }
 
     /// Register that this surface does not have a role any longer and retrieve the data
@@ -414,7 +424,7 @@ impl<U: 'static, R: RoleType + 'static> CompositorToken<U, R> {
     where
         R: Role<RoleData>,
     {
-        SurfaceData::<U, R>::remove_role::<RoleData>(surface)
+        SurfaceData::<R>::remove_role::<RoleData>(surface)
     }
 
     /// Retrieve the metadata associated with a `wl_region`
@@ -438,30 +448,29 @@ impl<U: 'static, R: RoleType + 'static> CompositorToken<U, R> {
 ///
 /// It also returns the two global handles, in case you wish to remove these
 /// globals from the event loop in the future.
-pub fn compositor_init<U, R, Impl, L>(
+pub fn compositor_init<R, Impl, L>(
     display: &mut Display,
     implem: Impl,
     logger: L,
 ) -> (
-    CompositorToken<U, R>,
+    CompositorToken<R>,
     Global<wl_compositor::WlCompositor>,
     Global<wl_subcompositor::WlSubcompositor>,
 )
 where
     L: Into<Option<::slog::Logger>>,
-    U: Default + 'static,
     R: Default + RoleType + Role<SubsurfaceRole> + 'static,
-    Impl: FnMut(SurfaceEvent, WlSurface, CompositorToken<U, R>) + 'static,
+    Impl: FnMut(SurfaceEvent, WlSurface, CompositorToken<R>) + 'static,
 {
     let log = crate::slog_or_stdlog(logger).new(o!("smithay_module" => "compositor_handler"));
     let implem = Rc::new(RefCell::new(implem));
 
     let compositor = display.create_global(4, move |new_compositor, _version| {
-        self::handlers::implement_compositor::<U, R, Impl>(new_compositor, log.clone(), implem.clone());
+        self::handlers::implement_compositor::<R, Impl>(new_compositor, log.clone(), implem.clone());
     });
 
     let subcompositor = display.create_global(1, move |new_subcompositor, _version| {
-        self::handlers::implement_subcompositor::<U, R>(new_subcompositor);
+        self::handlers::implement_subcompositor::<R>(new_subcompositor);
     });
 
     (CompositorToken::make(), compositor, subcompositor)
